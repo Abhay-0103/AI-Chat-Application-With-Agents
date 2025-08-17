@@ -4,85 +4,85 @@ import type { AIAgent } from "../types";
 import { OpenAIResponseHandler } from "./geminiResponseHandler";
 
 export class OpenAIAgent implements AIAgent {
-  private openai?: OpenAI;
-  private assistant?: OpenAI.Beta.Assistants.Assistant;
-  private openAiThread?: OpenAI.Beta.Threads.Thread;
-  private lastInteractionTs = Date.now();
+    private openai?: OpenAI;
+    private assistant?: OpenAI.Beta.Assistants.Assistant;
+    private openAiThread?: OpenAI.Beta.Threads.Thread;
+    private lastInteractionTs = Date.now();
 
-  private handlers: OpenAIResponseHandler[] = [];
+    private handlers: OpenAIResponseHandler[] = [];
 
-  constructor(
-    readonly chatClient: StreamChat,
-    readonly channel: Channel
-  ) {}
+    constructor(
+        readonly chatClient: StreamChat,
+        readonly channel: Channel
+    ) { }
 
-  dispose = async () => {
-    this.chatClient.off("message.new", this.handleMessage);
-    await this.chatClient.disconnectUser();
+    dispose = async () => {
+        this.chatClient.off("message.new", this.handleMessage);
+        await this.chatClient.disconnectUser();
 
-    for (const handler of this.handlers) {
-      await handler.dispose();
-    }
-    this.handlers = [];
-  };
+        for (const handler of this.handlers) {
+            await handler.dispose();
+        }
+        this.handlers = [];
+    };
 
-  get user() {
-    return this.chatClient.user;
-  }
-
-  getLastInteraction = (): number => this.lastInteractionTs;
-
-  init = async () => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API key is required");
+    get user() {
+        return this.chatClient.user;
     }
 
-    this.openai = new OpenAI({
-      apiKey,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    });
+    getLastInteraction = (): number => this.lastInteractionTs;
 
-    this.assistant = await this.openai.beta.assistants.create({
-      name: "AI Writing Assistant",
-      instructions: this.getWritingAssistantPrompt(),
-      model: "gemini-2.0-flash",
-      tools: [
-        { type: "code_interpreter" },
-        {
-          type: "function",
-          function: {
-            name: "web_search",
-            description:
-              "Search the web for current information, news, facts, or research on any topic",
-            parameters: {
-              type: "object",
-              properties: {
-                query: {
-                  type: "string",
-                  description: "The search query to find information about",
+    init = async () => {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            throw new Error("Gemini API key is required");
+        }
+
+        this.openai = new OpenAI({
+            apiKey,
+            baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+        });
+
+        this.assistant = await this.openai.beta.assistants.create({
+            name: "AI Writing Assistant",
+            instructions: this.getWritingAssistantPrompt(),
+            model: "gemini-2.0-flash",
+            tools: [
+                { type: "code_interpreter" },
+                {
+                    type: "function",
+                    function: {
+                        name: "web_search",
+                        description:
+                            "Search the web for current information, news, facts, or research on any topic",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                query: {
+                                    type: "string",
+                                    description: "The search query to find information about",
+                                },
+                            },
+                            required: ["query"],
+                        },
+                    },
                 },
-              },
-              required: ["query"],
-            },
-          },
-        },
-      ],
-      temperature: 0.7,
-    });
+            ],
+            temperature: 0.7,
+        });
 
-    this.openAiThread = await this.openai.beta.threads.create();
+        this.openAiThread = await this.openai.beta.threads.create();
 
-    this.chatClient.on("message.new", this.handleMessage);
-  };
+        this.chatClient.on("message.new", this.handleMessage);
+    };
 
-  private getWritingAssistantPrompt = (context?: string): string => {
-    const currentDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-    return `You are an expert AI Writing Assistant. Your primary purpose is to be a collaborative writing partner.
+    private getWritingAssistantPrompt = (context?: string): string => {
+        const currentDate = new Date().toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+        return `You are an expert AI Writing Assistant. Your primary purpose is to be a collaborative writing partner.
 
 **Your Core Capabilities:**
 - Content Creation, Improvement, Style Adaptation, Brainstorming, and Writing Coaching.
@@ -103,67 +103,67 @@ export class OpenAIAgent implements AIAgent {
 **Writing Context**: ${context || "General writing assistance."}
 
 Your goal is to provide accurate, current, and helpful written content. Failure to use web search for recent topics will result in an incorrect answer.`;
-  };
+    };
 
-  private handleMessage = async (e: Event<DefaultGenerics>) => {
-    if (!this.openai || !this.openAiThread || !this.assistant) {
-      console.log("OpenAI not initialized");
-      return;
-    }
+    private handleMessage = async (e: Event<DefaultGenerics>) => {
+        if (!this.openai || !this.openAiThread || !this.assistant) {
+            console.log("OpenAI not initialized");
+            return;
+        }
 
-    if (!e.message || e.message.ai_generated) {
-      return;
-    }
+        if (!e.message || e.message.ai_generated) {
+            return;
+        }
 
-    const message = e.message.text;
-    if (!message) return;
+        const message = e.message.text;
+        if (!message) return;
 
-    this.lastInteractionTs = Date.now();
+        this.lastInteractionTs = Date.now();
 
-    const writingTask = (e.message.custom as { writingTask?: string })
-      ?.writingTask;
-    const context = writingTask ? `Writing Task: ${writingTask}` : undefined;
+        const writingTask = (e.message.custom as { writingTask?: string })
+            ?.writingTask;
+        const context = writingTask ? `Writing Task: ${writingTask}` : undefined;
 
-    await this.openai.beta.threads.messages.create(this.openAiThread.id, {
-      role: "user",
-      content: message,
-    });
+        await this.openai.beta.threads.messages.create(this.openAiThread.id, {
+            role: "user",
+            content: message,
+        });
 
-    const { message: channelMessage } = await this.channel.sendMessage({
-      text: "",
-      ai_generated: true,
-    });
+        const { message: channelMessage } = await this.channel.sendMessage({
+            text: "",
+            ai_generated: true,
+        });
 
-    await this.channel.sendEvent({
-      type: "ai_indicator.update",
-      ai_state: "AI_STATE_THINKING",
-      cid: channelMessage.cid,
-      message_id: channelMessage.id,
-    });
+        await this.channel.sendEvent({
+            type: "ai_indicator.update",
+            ai_state: "AI_STATE_THINKING",
+            cid: channelMessage.cid,
+            message_id: channelMessage.id,
+        });
 
-    const run = this.openai.beta.threads.runs.createAndStream(
-      this.openAiThread.id,
-      {
-        assistant_id: this.assistant.id,
-      }
-    );
+        const run = this.openai.beta.threads.runs.createAndStream(
+            this.openAiThread.id,
+            {
+                assistant_id: this.assistant.id,
+            }
+        );
 
-    const handler = new OpenAIResponseHandler(
-      this.openai,
-      this.openAiThread,
-      run,
-      this.chatClient,
-      this.channel,
-      channelMessage,
-      () => this.removeHandler(handler)
-    );
-    this.handlers.push(handler);
-    void handler.run();
-  };
+        const handler = new OpenAIResponseHandler(
+            this.openai,
+            this.openAiThread,
+            run,
+            this.chatClient,
+            this.channel,
+            channelMessage,
+            () => this.removeHandler(handler)
+        );
+        this.handlers.push(handler);
+        void handler.run();
+    };
 
-  private removeHandler = (handlerToRemove: OpenAIResponseHandler) => {
-    this.handlers = this.handlers.filter(
-      (handler) => handler !== handlerToRemove
-    );
-  };
+    private removeHandler = (handlerToRemove: OpenAIResponseHandler) => {
+        this.handlers = this.handlers.filter(
+            (handler) => handler !== handlerToRemove
+        );
+    };
 }
