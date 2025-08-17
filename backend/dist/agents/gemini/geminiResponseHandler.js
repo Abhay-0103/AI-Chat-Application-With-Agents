@@ -45,7 +45,10 @@ class OpenAIResponseHandler {
             });
             await this.dispose();
         };
-        this.handleStreamEvent = async (event) => { };
+        this.handleStreamEvent = async (event) => {
+            const ;
+            this.message;
+        };
         this.handleError = async (error) => {
             if (this.is_done) {
                 return;
