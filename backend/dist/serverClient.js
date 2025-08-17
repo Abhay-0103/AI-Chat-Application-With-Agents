@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.serverClient = exports.apiSecret = exports.apikey = void 0;
+exports.serverClient = exports.apiSecret = exports.apiKey = void 0;
 const stream_chat_1 = require("stream-chat");
-exports.apikey = process.env.STREAM_API_KEY;
+exports.apiKey = process.env.STREAM_API_KEY;
 exports.apiSecret = process.env.STREAM_API_SECRET;
-if (!exports.apikey || !exports.apiSecret) {
+if (!exports.apiKey || !exports.apiSecret) {
     throw new Error("Missing required env variables for STREAM_API_SECRET and STREAM_API_KEY");
 }
-exports.serverClient = new stream_chat_1.StreamChat(exports.apikey, exports.apiSecret);
+exports.serverClient = new stream_chat_1.StreamChat(exports.apiKey, exports.apiSecret);
 //# sourceMappingURL=serverClient.js.map
